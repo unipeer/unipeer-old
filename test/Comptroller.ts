@@ -4,28 +4,24 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-wit
 const { deployMockContract } = waffle;
 import { expect } from "chai";
 
-import { getInitializerData } from "../utils";
-
 import {
   Comptroller__factory,
   Comptroller as ComptrollerContract,
-  EthEscrow__factory,
-  EthEscrow as EthEscrowContract,
-  EscrowFactory__factory,
-  EscrowFactory as EscrowFactoryContract,
+  Escrow__factory,
+  Escrow as EscrowContract,
 } from "../types";
 
 import LinkTokenABI from "./abi/LinkToken.json";
-import OracleABI from "./abi/Oracle.json";
 
 let comptroller: ComptrollerContract;
-let escrow: EthEscrowContract;
-let escrowFactory: EscrowFactoryContract;
+let escrow: EscrowContract;
 
 let admin: SignerWithAddress;
 let owner: SignerWithAddress;
 let buyer: SignerWithAddress;
 let oracle: SignerWithAddress;
+
+const DEFAULT_ASSET = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
 describe("Comptroller", function () {
   beforeEach(async function () {
@@ -36,7 +32,7 @@ describe("Comptroller", function () {
     await mockLink.mock.transferAndCall.returns(true);
     //const mockOracle = await deployMockContract(admin, OracleABI);
 
-    const Comptroller = await new Comptroller__factory(admin);
+    const Comptroller = new Comptroller__factory(admin);
 
     comptroller = await Comptroller.deploy(
       mockLink.address,
@@ -44,18 +40,14 @@ describe("Comptroller", function () {
       web3.utils.toHex("0d69f6d174a4446c9a7ffa21cd0f687c"),
     );
 
-    const EthEscrow = await new EthEscrow__factory(admin);
-    const EscrowFactory = await new EscrowFactory__factory(admin);
+    const Escrow = new Escrow__factory(admin);
 
-    const escrowNaked = await EthEscrow.deploy();
-    escrowFactory = await EscrowFactory.deploy(
-      escrowNaked.address,
+    escrow = await Escrow.deploy(
+      owner.address,
       comptroller.address,
+      "seller@upi",
     );
-
-    await escrowFactory.connect(owner).newEscrow("seller@upi");
-    const escrows = await escrowFactory.getEscrows(owner.address);
-    escrow = await EthEscrow.attach(escrows[0]).connect(owner);
+    escrow = escrow.connect(owner);
   });
 
   it("should correctly create a fiat payment request", async function () {
@@ -141,9 +133,10 @@ describe("Comptroller", function () {
         to: escrow.address,
         value: amount,
       });
-      expect(await escrow.getUnlockedBalance(), "balance [initial]").to.equal(
-        amount,
-      );
+      expect(
+        await escrow.getUnlockedBalance(DEFAULT_ASSET),
+        "balance [initial]",
+      ).to.equal(amount);
 
       // create a payment request
       await expect(

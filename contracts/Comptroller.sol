@@ -107,7 +107,7 @@ contract Comptroller is ChainlinkClient, WithStatus, LinkTokenReceiver {
         );
         Escrow escrow = Escrow(payable(_seller));
         require(
-            escrow.getUnlockedBalance() >= _amount,
+            escrow.getUnlockedBalance(escrow.DEFAULT_ASSET()) >= _amount,
             "Comptroller: not enough funds in escrow"
         );
 

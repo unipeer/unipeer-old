@@ -35,7 +35,7 @@ contract EscrowFactory {
     {
         Escrow instance = new Escrow(msg.sender, comptroller, paymentid);
 
-        escrow = address(instance);
+        escrow = payable(address(instance));
         escrows[msg.sender].push(escrow);
         Address.sendValue(escrow, msg.value);
 

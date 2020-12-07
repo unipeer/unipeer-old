@@ -4,27 +4,29 @@ pragma solidity ^0.6.0;
 
 import "./AssetAdapter.sol";
 
-abstract contract AssetAdapterWithLocking is AssetAdapter {
+abstract contract AssetAdapterWithLocking {
+    using AssetAdapter for address;
+
     event AmountLocked(address indexed seller, uint256 amount);
     event AmountUnlocked(address indexed seller, uint256 amount);
 
-    uint256 private _amountLocked;
+    mapping(address => uint256) private lockedBalance;
 
-    function getUnlockedBalance() public view returns (uint256) {
-        return SafeMath.sub(getBalance(), _amountLocked);
+    function getUnlockedBalance(address _asset) public view returns (uint256) {
+        return SafeMath.sub(_asset.getBalance(), lockedBalance[_asset]);
     }
 
-    function rawLockAsset(uint256 _amount) internal {
+    function lockAsset(address _asset, uint256 _amount) internal {
         require(
-            getUnlockedBalance() >= _amount,
+            getUnlockedBalance(_asset) >= _amount,
             "EthAdapter: insufficient funds to lock"
         );
-        _amountLocked = SafeMath.add(_amountLocked, _amount);
+        lockedBalance[_asset] = SafeMath.add(lockedBalance[_asset], _amount);
         emit AmountLocked(address(this), _amount);
     }
 
-    function rawUnlockAsset(uint256 _amount) internal {
-        _amountLocked = SafeMath.sub(_amountLocked, _amount);
+    function unlockAsset(address _asset, uint256 _amount) internal {
+        lockedBalance[_asset] = SafeMath.sub(lockedBalance[_asset], _amount);
         emit AmountUnlocked(address(this), _amount);
     }
 }

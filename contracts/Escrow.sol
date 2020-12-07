@@ -8,10 +8,9 @@ import "@chainlink/contracts/src/v0.6/ChainlinkClient.sol";
 import "hardhat/console.sol";
 
 import "./adapters/AssetAdapterWithFees.sol";
-import "./adapters/EthAdapter.sol";
 import "./utils/WithStatus.sol";
 
-contract Escrow is ChainlinkClient, AssetAdapterWithFees, EthAdapter {
+contract Escrow is ChainlinkClient, AssetAdapterWithFees {
     struct Job {
         address payable buyer;
         uint256 amount;
@@ -21,6 +20,8 @@ contract Escrow is ChainlinkClient, AssetAdapterWithFees, EthAdapter {
     address public owner;
     address payable public comptroller;
     string public paymentid;
+
+    address public DEFAULT_ASSET = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     constructor(
         address _owner,
@@ -62,10 +63,10 @@ contract Escrow is ChainlinkClient, AssetAdapterWithFees, EthAdapter {
         statusAtLeast(Status.RETURN_ONLY)
     {
         require(
-            getUnlockedBalance() >= _amount,
+            getUnlockedBalance(DEFAULT_ASSET) >= _amount,
             "Escrow: insufficient unlocked funds to withdraw"
         );
-        rawSendAsset(_amount, _to);
+        DEFAULT_ASSET.sendValue(_to, _amount);
     }
 
     function expectResponseFor(
@@ -74,7 +75,7 @@ contract Escrow is ChainlinkClient, AssetAdapterWithFees, EthAdapter {
         address payable _buyer,
         uint256 _amount
     ) public onlyComptroller statusAtLeast(Status.FINALIZE_ONLY) {
-        lockAssetWithFee(_amount); // check
+        lockAssetWithFee(DEFAULT_ASSET, _amount); // check
         jobs[_requestId] = Job({ buyer: _buyer, amount: _amount }); // effects
         addChainlinkExternalRequest(_oracle, _requestId); // interaction
     }
@@ -86,9 +87,15 @@ contract Escrow is ChainlinkClient, AssetAdapterWithFees, EthAdapter {
         delete jobs[_requestId]; // cleanup storage
 
         if (successful) {
-            sendAssetWithFee(job.buyer, job.amount, comptroller);
+            sendAssetWithFee(DEFAULT_ASSET, job.buyer, job.amount, comptroller);
         } else {
-            unlockAssetWithFee(job.amount);
+            unlockAssetWithFee(DEFAULT_ASSET, job.amount);
         }
     }
+
+    /**
+     * @dev We have the payable receive function to accept ether payment only
+     * and not the fallback function to avoid delegating calls further.
+     */
+    receive() external payable {} // solhint-disable-line no-empty-blocks
 }

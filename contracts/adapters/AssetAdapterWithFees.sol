@@ -31,23 +31,24 @@ abstract contract AssetAdapterWithFees is AssetAdapterWithLocking {
         return baseAmount + getFee(baseAmount);
     }
 
-    function lockAssetWithFee(uint256 _amount) internal {
+    function lockAssetWithFee(address _asset, uint256 _amount) internal {
         uint256 totalAmount = getAmountWithFee(_amount);
-        rawLockAsset(totalAmount);
+        lockAsset(_asset, totalAmount);
     }
 
-    function unlockAssetWithFee(uint256 _amount) internal {
+    function unlockAssetWithFee(address _asset, uint256 _amount) internal {
         uint256 totalAmount = getAmountWithFee(_amount);
-        rawUnlockAsset(totalAmount);
+        unlockAsset(_asset, totalAmount);
     }
 
     function sendAssetWithFee(
+        address _asset,
         address payable _to,
         uint256 _amount,
         address payable _feeCollector
     ) internal {
-        unlockAssetWithFee(_amount);
-        rawSendAsset(_amount, _to);
-        rawSendAsset(getFee(_amount), _feeCollector);
+        unlockAssetWithFee(_asset, _amount);
+        _asset.sendValue(_to, _amount);
+        _asset.sendValue(_feeCollector, getFee(_amount));
     }
 }

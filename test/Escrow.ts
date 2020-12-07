@@ -7,23 +7,21 @@ import { expect } from "chai";
 import {
   Comptroller__factory,
   Comptroller as ComptrollerContract,
-  EthEscrow__factory,
-  EthEscrow as EthEscrowContract,
-  EscrowFactory__factory,
-  EscrowFactory as EscrowFactoryContract,
+  Escrow__factory,
+  Escrow as EscrowContract,
 } from "../types";
 
 import LinkTokenABI from "./abi/LinkToken.json";
-import OracleABI from "./abi/Oracle.json";
 
 let comptroller: ComptrollerContract;
-let escrow: EthEscrowContract;
-let escrowFactory: EscrowFactoryContract;
+let escrow: EscrowContract;
 
 let admin: SignerWithAddress;
 let owner: SignerWithAddress;
 let buyer: SignerWithAddress;
 let oracle: SignerWithAddress;
+
+const DEFAULT_ASSET = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
 describe("Escrow", function () {
   beforeEach(async function () {
@@ -34,7 +32,7 @@ describe("Escrow", function () {
     await mockLink.mock.transferAndCall.returns(true);
     //const mockOracle = await deployMockContract(admin, OracleABI);
 
-    const Comptroller = await new Comptroller__factory(admin);
+    const Comptroller = new Comptroller__factory(admin);
 
     comptroller = await Comptroller.deploy(
       mockLink.address,
@@ -42,22 +40,18 @@ describe("Escrow", function () {
       web3.utils.toHex("0d69f6d174a4446c9a7ffa21cd0f687c"),
     );
 
-    const EthEscrow = await new EthEscrow__factory(admin);
-    const EscrowFactory = await new EscrowFactory__factory(admin);
+    const Escrow = new Escrow__factory(admin);
 
-    const escrowNaked = await EthEscrow.deploy();
-    escrowFactory = await EscrowFactory.deploy(
-      escrowNaked.address,
+    escrow = await Escrow.deploy(
+      owner.address,
       comptroller.address,
+      "seller@upi",
     );
-
-    await escrowFactory.connect(owner).newEscrow("seller@upi");
-    const escrows = await escrowFactory.getEscrows(owner.address);
-    escrow = await EthEscrow.attach(escrows[0]).connect(owner);
+    escrow = escrow.connect(owner);
   });
 
   it("can deposit additional funds to the contract", async function () {
-    expect(await escrow.getUnlockedBalance()).to.equal(0);
+    expect(await escrow.getUnlockedBalance(DEFAULT_ASSET)).to.equal(0);
 
     const amount = ethers.utils.parseEther("1.0");
     await owner.sendTransaction({
@@ -65,7 +59,7 @@ describe("Escrow", function () {
       value: amount,
     });
 
-    expect(await escrow.getUnlockedBalance()).to.equal(amount);
+    expect(await escrow.getUnlockedBalance(DEFAULT_ASSET)).to.equal(amount);
   });
 
   it("can withdraw funds from the contract", async function () {
@@ -75,10 +69,10 @@ describe("Escrow", function () {
       value: amount,
     });
 
-    expect(await escrow.getUnlockedBalance()).to.equal(amount);
+    expect(await escrow.getUnlockedBalance(DEFAULT_ASSET)).to.equal(amount);
 
     await escrow.withdraw(amount, owner.address);
-    expect(await escrow.getUnlockedBalance()).to.equal(0);
+    expect(await escrow.getUnlockedBalance(DEFAULT_ASSET)).to.equal(0);
   });
 
   describe("fulfillFiatPayment", function () {
@@ -90,9 +84,10 @@ describe("Escrow", function () {
         to: escrow.address,
         value: amount,
       });
-      expect(await escrow.getUnlockedBalance(), "balance [initial]").to.equal(
-        amount,
-      );
+      expect(
+        await escrow.getUnlockedBalance(DEFAULT_ASSET),
+        "balance [initial]",
+      ).to.equal(amount);
 
       // create a payment request
       await expect(
@@ -114,14 +109,14 @@ describe("Escrow", function () {
 
     it("should correctly report unlocked balance", async function () {
       expect(
-        await escrow.getUnlockedBalance(),
+        await escrow.getUnlockedBalance(DEFAULT_ASSET),
         "Balance after locked",
       ).to.equal(ethers.utils.parseEther("8.9951"));
     });
 
     it("should not withdraw more that unlocked balance", async function () {
       expect(
-        await escrow.getUnlockedBalance(),
+        await escrow.getUnlockedBalance(DEFAULT_ASSET),
         "Balance after locked",
       ).to.equal(ethers.utils.parseEther("8.9951"));
 
@@ -139,9 +134,10 @@ describe("Escrow", function () {
         .to.emit(escrow, "AmountUnlocked")
         .withArgs(escrow.address, ethers.utils.parseEther("1.0049"));
 
-      expect(await escrow.getUnlockedBalance(), "balance [unlocked]").to.equal(
-        ethers.utils.parseEther("10"),
-      );
+      expect(
+        await escrow.getUnlockedBalance(DEFAULT_ASSET),
+        "balance [unlocked]",
+      ).to.equal(ethers.utils.parseEther("10"));
     });
 
     it("should reset internal state after succcessful payment", async function () {
@@ -151,9 +147,10 @@ describe("Escrow", function () {
         "fulfillFiatPayment",
       ).to.not.be.reverted;
 
-      expect(await escrow.getUnlockedBalance(), "balance [final]").to.equal(
-        ethers.utils.parseEther("8.9951"),
-      );
+      expect(
+        await escrow.getUnlockedBalance(DEFAULT_ASSET),
+        "balance [final]",
+      ).to.equal(ethers.utils.parseEther("8.9951"));
     });
   });
 });
