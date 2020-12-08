@@ -22,13 +22,17 @@ contract Unipeer is
     uint256 private fee;
 
     struct Seller {
-        string paymentid;
+        string paymentId;
         mapping(address => uint256) balance;
     }
 
     Seller[] private sellers;
     // paymentid => index of sellers
     mapping(string => uint256) public sellerIds;
+
+    // Could be IterableMapping
+    // paymentId => token => balance
+    // mapping(string => mapping(address => uint256))
 
     struct Job {
         uint256 sellerId;
@@ -60,6 +64,24 @@ contract Unipeer is
         setChainlinkOracle(_oracle);
         jobId = _jobId;
         fee = 0.01 * 10**18; // 0.01 LINK
+    }
+
+    function deposit(
+        string calldata _paymentId,
+        address _token,
+        uint256 _amount
+    ) public payable {
+        uint256 sellerId = sellerIds[_paymentId];
+        if (sellerId == 0) {
+            Seller storage seller;
+            seller.paymentId = _paymentId;
+            seller.balance[_token] = _amount;
+            sellers.push(seller);
+            sellerId = sellers.length; // replace with counter?
+            sellerIds[_paymentId] = sellerId;
+        }
+        Seller storage seller = sellers[sellerId];
+        seller.balance[_token] = seller.balance[_token].add(_amount);
     }
 
     function withdrawFees(
@@ -140,7 +162,7 @@ contract Unipeer is
             this.fulfillFiatPayment.selector // callback function selector
         );
         req.add("method", "collectrequest");
-        req.add("receiver", seller.paymentid);
+        req.add("receiver", seller.paymentId);
         req.add("sender", _senderpaymentid);
         //req.addBytes("token", bytes(_token));
         req.addUint("amount", _amount);
