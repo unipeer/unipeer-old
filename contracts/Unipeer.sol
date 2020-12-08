@@ -10,8 +10,14 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "hardhat/console.sol";
 
 import "./utils/WithStatus.sol";
+import "./adapters/AssetAdapterWithFees.sol";
 
-contract Unipeer is ChainlinkClient, WithStatus, LinkTokenReceiver {
+contract Unipeer is
+    ChainlinkClient,
+    WithStatus,
+    LinkTokenReceiver,
+    AssetAdapterWithFees
+{
     bytes32 private jobId;
     uint256 private fee;
 
@@ -42,7 +48,10 @@ contract Unipeer is ChainlinkClient, WithStatus, LinkTokenReceiver {
         address _link,
         address _oracle,
         bytes32 _jobId
-    ) public {
+    )
+        public
+        AssetAdapterWithFees(490, 100 * 10**9) /* 0.49% or 100 gwei */
+    {
         if (_link == address(0)) {
             setPublicChainlinkToken();
         } else {
@@ -53,12 +62,12 @@ contract Unipeer is ChainlinkClient, WithStatus, LinkTokenReceiver {
         fee = 0.01 * 10**18; // 0.01 LINK
     }
 
-    function withdrawFees(address payable _to, uint256 _amount)
-        public
-        onlyOwner()
-        statusAtLeast(Status.RETURN_ONLY)
-    {
-        Address.sendValue(_to, _amount);
+    function withdrawFees(
+        address token,
+        address payable _to,
+        uint256 _amount
+    ) public onlyOwner() statusAtLeast(Status.RETURN_ONLY) {
+        token.sendValue(_to, _amount);
     }
 
     /**
@@ -107,9 +116,8 @@ contract Unipeer is ChainlinkClient, WithStatus, LinkTokenReceiver {
         string calldata _senderpaymentid,
         address payable _buyer,
         uint256 _amount,
-        address _token
-    ) public /* onlyOwner() */
-    {
+        address _token /* onlyOwner() */
+    ) public {
         _requestFiatPayment(_senderpaymentid, _buyer, _amount, _token);
     }
 
@@ -156,8 +164,7 @@ contract Unipeer is ChainlinkClient, WithStatus, LinkTokenReceiver {
         delete jobs[_requestId]; // cleanup storage
 
         if (successful) {
-            Address.sendValue(job.buyer, job.amount);
-            //sendAssetWithFee(job.amount, job.buyer, comptroller);
+            sendAssetKeepingFee(job.token, job.buyer, job.amount);
         } else {
             // "unlock" amount from seller balance
             Seller storage seller = sellers[job.sellerId];

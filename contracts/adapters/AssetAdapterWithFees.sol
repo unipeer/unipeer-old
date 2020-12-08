@@ -4,11 +4,15 @@ pragma solidity ^0.6.0;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
-import "./AssetAdapterWithLocking.sol";
+import "./AssetAdapter.sol";
 
-abstract contract AssetAdapterWithFees is AssetAdapterWithLocking {
+abstract contract AssetAdapterWithFees {
+    using AssetAdapter for address;
+
     uint16 public feeThousandthsPercent;
     uint256 public minFeeAmount;
+
+    mapping(address => uint256) private fees;
 
     /**
      * @param _feeThousandthsPercent The fee percentage with three decimal places.
@@ -31,14 +35,13 @@ abstract contract AssetAdapterWithFees is AssetAdapterWithLocking {
         return baseAmount + getFee(baseAmount);
     }
 
-    function lockAssetWithFee(address _asset, uint256 _amount) internal {
-        uint256 totalAmount = getAmountWithFee(_amount);
-        lockAsset(_asset, totalAmount);
-    }
-
-    function unlockAssetWithFee(address _asset, uint256 _amount) internal {
-        uint256 totalAmount = getAmountWithFee(_amount);
-        unlockAsset(_asset, totalAmount);
+    function sendAssetKeepingFee(
+        address _asset,
+        address payable _to,
+        uint256 _amount
+    ) internal {
+        _asset.sendValue(_to, _amount);
+        fees[_asset] = SafeMath.add(fees[_asset], getFee(_amount));
     }
 
     function sendAssetWithFee(
