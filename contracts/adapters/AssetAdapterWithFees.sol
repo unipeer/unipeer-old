@@ -47,7 +47,6 @@ abstract contract AssetAdapterWithFees is AssetAdapterWithLocking {
         uint256 _amount,
         address payable _feeCollector
     ) internal {
-        unlockAssetWithFee(_asset, _amount);
         _asset.sendValue(_to, _amount);
         _asset.sendValue(_feeCollector, getFee(_amount));
     }
