@@ -12,7 +12,7 @@ abstract contract AssetAdapterWithFees {
     uint16 public feeThousandthsPercent;
     uint256 public minFeeAmount;
 
-    mapping(address => uint256) private fees;
+    mapping(address => uint256) internal fees;
 
     /**
      * @param _feeThousandthsPercent The fee percentage with three decimal places.

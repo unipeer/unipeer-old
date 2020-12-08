@@ -63,11 +63,15 @@ contract Unipeer is
     }
 
     function withdrawFees(
-        address token,
+        address _token,
         address payable _to,
         uint256 _amount
     ) public onlyOwner() statusAtLeast(Status.RETURN_ONLY) {
-        token.sendValue(_to, _amount);
+        require(
+            fees[_token] >= _amount,
+            "Unipeer: Cannot withdraw more than collected fees"
+        );
+        _token.sendValue(_to, _amount);
     }
 
     /**
