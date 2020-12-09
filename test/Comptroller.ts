@@ -11,7 +11,7 @@ import {
   Escrow as EscrowContract,
 } from "../types";
 
-import LinkTokenABI from "./abi/LinkToken.json";
+import LinkTokenABI from "@chainlink/contracts/abi/v0.4/LinkTokenInterface.json";
 
 let comptroller: ComptrollerContract;
 let escrow: EscrowContract;
@@ -27,7 +27,10 @@ describe("Comptroller", function () {
   beforeEach(async function () {
     [admin, owner, buyer, oracle] = await ethers.getSigners();
 
-    const mockLink = await deployMockContract(admin, LinkTokenABI);
+    const mockLink = await deployMockContract(
+      admin,
+      LinkTokenABI.compilerOutput.abi,
+    );
     await mockLink.mock.balanceOf.returns(ethers.utils.parseEther("999999"));
     await mockLink.mock.transferAndCall.returns(true);
     //const mockOracle = await deployMockContract(admin, OracleABI);

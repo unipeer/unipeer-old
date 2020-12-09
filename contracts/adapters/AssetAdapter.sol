@@ -8,8 +8,8 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 library AssetAdapter {
     using SafeERC20 for IERC20;
 
-    address
-        internal constant ETH_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address internal constant ETH_ADDR =
+        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /**
      * @dev Get the current balance of the Asset held by the implementing contract.

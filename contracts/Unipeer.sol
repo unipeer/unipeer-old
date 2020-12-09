@@ -27,12 +27,10 @@ contract Unipeer is
     }
 
     Seller[] private sellers;
-    // paymentid => index of sellers
-    mapping(string => uint256) public sellerIds;
+    mapping(address => uint256) public sellerIds;
 
     // Could be IterableMapping
-    // paymentId => token => balance
-    // mapping(string => mapping(address => uint256))
+    // mapping(address => Seller) public sellers;
 
     struct Job {
         uint256 sellerId;
@@ -66,22 +64,43 @@ contract Unipeer is
         fee = 0.01 * 10**18; // 0.01 LINK
     }
 
+    /**
+     * @dev deposit funds from a seller
+     * TODO: split into separate newSeller & deposit function?
+     *
+     */
     function deposit(
         string calldata _paymentId,
         address _token,
         uint256 _amount
     ) public payable {
-        uint256 sellerId = sellerIds[_paymentId];
+        uint256 sellerId = sellerIds[msg.sender];
         if (sellerId == 0) {
             Seller storage seller;
             seller.paymentId = _paymentId;
             seller.balance[_token] = _amount;
             sellers.push(seller);
             sellerId = sellers.length; // replace with counter?
-            sellerIds[_paymentId] = sellerId;
+            sellerIds[msg.sender] = sellerId;
         }
         Seller storage seller = sellers[sellerId];
         seller.balance[_token] = seller.balance[_token].add(_amount);
+    }
+
+    function withdraw(
+        address _token,
+        address payable _to,
+        uint256 _amount
+    ) public {
+        uint256 sellerId = sellerIds[msg.sender];
+        require(sellerId != 0, "Unipeer: user is not a seller");
+
+        Seller storage seller = sellers[sellerId];
+        require(
+            seller.balance[_token] >= _amount,
+            "Unipeer: cannot withdraw more the available funds"
+        );
+        _token.sendValue(_to, _amount);
     }
 
     function withdrawFees(
@@ -154,7 +173,7 @@ contract Unipeer is
         uint256 _amount,
         address _token
     ) internal statusAtLeast(Status.ACTIVE) returns (bytes32 requestId) {
-        uint256 sellerId = 1; // findSeller(_amount);
+        uint256 sellerId = 1; // findSeller(_amount); // TODO
         Seller storage seller = sellers[sellerId];
 
         Chainlink.Request memory req =
