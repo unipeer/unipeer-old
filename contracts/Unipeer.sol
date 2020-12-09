@@ -111,13 +111,14 @@ contract Unipeer is
         uint256 _amount,
         address _token
     ) public statusAtLeast(Status.ACTIVE) {
-        bytes memory payload = abi.encodeWithSignature(
-            "requestFiatPaymentWithLink(string,address,uint256,address)",
-            _senderpaymentid,
-            _buyer,
-            _amount,
-            _token
-        );
+        bytes memory payload =
+            abi.encodeWithSignature(
+                "requestFiatPaymentWithLink(string,address,uint256,address)",
+                _senderpaymentid,
+                _buyer,
+                _amount,
+                _token
+            );
 
         require(
             LinkTokenInterface(chainlinkTokenAddress()).transferAndCall(
@@ -156,11 +157,12 @@ contract Unipeer is
         uint256 sellerId = 1; // findSeller(_amount);
         Seller storage seller = sellers[sellerId];
 
-        Chainlink.Request memory req = buildChainlinkRequest(
-            jobId, // Chainlink JobId
-            address(this), // contract address with the callback function
-            this.fulfillFiatPayment.selector // callback function selector
-        );
+        Chainlink.Request memory req =
+            buildChainlinkRequest(
+                jobId, // Chainlink JobId
+                address(this), // contract address with the callback function
+                this.fulfillFiatPayment.selector // callback function selector
+            );
         req.add("method", "collectrequest");
         req.add("receiver", seller.paymentId);
         req.add("sender", _senderpaymentid);
@@ -169,8 +171,7 @@ contract Unipeer is
 
         bytes32 reqId = sendChainlinkRequest(req, fee);
 
-        // "lock" amount from seller balance
-        seller.balance[_token] = seller.balance[_token].sub(_amount);
+        lockWithFees(seller, _token, _amount);
 
         jobs[reqId] = Job({
             sellerId: sellerId,
@@ -192,12 +193,35 @@ contract Unipeer is
         if (successful) {
             sendAssetKeepingFee(job.token, job.buyer, job.amount);
         } else {
-            // "unlock" amount from seller balance
             Seller storage seller = sellers[job.sellerId];
-            seller.balance[job.token] = seller.balance[job.token].add(
-                job.amount
-            );
+            unlockWithFees(seller, job.token, job.amount);
         }
+    }
+
+    /**
+     * @dev lock amount from seller balance
+     */
+    function lockWithFees(
+        Seller storage _seller,
+        address _token,
+        uint256 _amount
+    ) internal {
+        _seller.balance[_token] = _seller.balance[_token].sub(_amount).sub(
+            getFee(_amount)
+        );
+    }
+
+    /**
+     * @dev unlock amount from seller balance
+     */
+    function unlockWithFees(
+        Seller storage _seller,
+        address _token,
+        uint256 _amount
+    ) internal {
+        _seller.balance[_token] = _seller.balance[_token].add(_amount).add(
+            getFee(_amount)
+        );
     }
 
     /**
